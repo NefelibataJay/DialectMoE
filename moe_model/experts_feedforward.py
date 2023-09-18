@@ -9,17 +9,14 @@ from loss.balance_loss import SparseL1Loss, BalanceImportanceLoss
 class Expert(nn.Module):
     def __init__(self, input_size, output_size, hidden_size, dropout_rate: float = 0.0, ):
         super(Expert, self).__init__()
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, output_size)
+        self.w_1 = nn.Linear(input_size, hidden_size)
+        self.w_2 = nn.Linear(hidden_size, output_size)
         # self.activate = nn.ReLU()
-        self.activate = nn.SiLU()
+        self.activation = nn.SiLU()
         self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.fc1(x)
-        out = self.activate(out)
-        out = self.fc2(out)
-        return self.dropout(out)
+        return self.w_2(self.dropout(self.activation(self.w_1(x))))
 
 
 class ExpertsFeedForward(nn.Module):

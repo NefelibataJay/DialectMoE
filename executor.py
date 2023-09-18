@@ -1,6 +1,6 @@
 import torch
 from torch.nn.utils import clip_grad_norm_
-
+from contextlib import nullcontext
 
 class MyExecutor:
     def __init__(self):
@@ -14,6 +14,7 @@ class MyExecutor:
         epoch = configs.get('epoch', 0)
         logger_interval = configs.get('logger_interval', 100)
         print('using accumulate grad, new batch size is {} times larger than before'.format(accum_grad))
+        # model_context = nullcontext
 
         for batch_idx, batch in enumerate(data_loader):
             key, feats, target, feats_lengths, target_lengths, domain_id = batch
@@ -26,6 +27,8 @@ class MyExecutor:
 
             if num_utts == 0:
                 continue
+
+            # context = nullcontext
             # important
             loss_dict = model(feats, feats_lengths, target, target_lengths, domain_id)
             loss = loss_dict['loss'] / accum_grad
@@ -39,9 +42,11 @@ class MyExecutor:
                     # 检查梯度的范数是否出现非有限数 (如NaN或Inf)
                     # 与输入张量形状相同，其中每个元素的值为True或False，
                     optimizer.step()
-            optimizer.zero_grad()
-            scheduler.step()
-            self.step += 1
+                else:
+                    print('grad norm is {}, skip update'.format(grad_norm))
+                optimizer.zero_grad()
+                scheduler.step()
+                self.step += 1
 
             if batch_idx % logger_interval == 0:
                 lr = optimizer.param_groups[0]['lr']

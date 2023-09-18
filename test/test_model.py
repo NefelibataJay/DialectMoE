@@ -1,7 +1,7 @@
 import torch
 import yaml
 
-from moe_model.init_model import init_model
+from init_model import init_model
 
 
 def test_model():

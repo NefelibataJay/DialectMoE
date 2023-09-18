@@ -1,26 +1,35 @@
 import copy
-
+import os
+import sys
 import torch
 import yaml
 from torch.utils.data import DataLoader
-
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 from wenet.dataset.dataset import Dataset
 from wenet.utils.file_utils import *
-from wenet.utils.init_model import init_model
+from init_model import init_model
 
 
 def main():
     torch.manual_seed(777)
-    mode = "attention"
+    mode = "ctc_greedy_search"
     data_type = "raw"
     symbol_path = "data/dict/"
-    config_path = "exp/mt_conformer_DID_ASR/train.yaml"
-    test_data = "data/mandarin+kunming+sichuan/test/data.list"
-    checkpoint_path = "exp/mt_conformer_DID_ASR/final.pt"
-    result_file = "exp/mt_conformer_DID_ASR/test_result.txt"
+    config_path = "conf/train_branchformer_moe.yaml"
+    test_data = "data/aishell/test/data.list"
+    checkpoint_path = "exp/branchformer_expert_aishell-grad_accu_4_50000lr/28.pt"
+    result_file = "exp/branchformer_expert_aishell-grad_accu_4_50000lr/test_result.txt"
+    cmvn_path = None
 
     with open(config_path, 'r') as fin:
         configs = yaml.load(fin, Loader=yaml.FullLoader)
+
+    if 'fbank_conf' in configs['dataset_conf']:
+        input_dim = configs['dataset_conf']['fbank_conf']['num_mel_bins']
+    else:
+        input_dim = configs['dataset_conf']['mfcc_conf']['num_mel_bins']
 
     test_conf = copy.deepcopy(configs['dataset_conf'])
     test_conf['filter_conf']['max_length'] = 102400
@@ -44,16 +53,24 @@ def main():
     configs['cmvn_file'] = None
 
     symbol_table = read_symbol_table(symbol_path)
-    accent_table = read_accent_table(symbol_path)
+    domain_table = read_domain_table(symbol_path)
+
+    vocab_size = len(symbol_table)
+    domain_num = len(domain_table)
 
     test_dataset = Dataset(data_type,
                            test_data,
                            symbol_table,
-                           accent_table,
+                           domain_table,
                            test_conf,
                            partition=False)
 
     test_data_loader = DataLoader(test_dataset, batch_size=None, num_workers=0)
+    configs['input_dim'] = input_dim
+    configs['output_dim'] = vocab_size
+    configs['cmvn_file'] = cmvn_path
+    configs['is_json_cmvn'] = True
+    configs["domain_num"] = domain_num
 
     model = init_model(configs)
 
@@ -63,8 +80,9 @@ def main():
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint, strict=False)
 
-    use_cuda = args.gpu >= 0 and torch.cuda.is_available()
-    device = torch.device('cuda' if use_cuda else 'cpu')
+    use_cuda = torch.cuda.is_available()
+    # device = torch.device('cuda' if use_cuda else 'cpu')
+    device = torch.device('cpu')
     model = model.to(device)
 
     model.eval()

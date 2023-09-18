@@ -9,7 +9,7 @@ import os
 import sys
 
 from executor import MyExecutor
-from moe_model.init_model import init_model
+from init_model import init_model
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -23,7 +23,7 @@ from wenet.utils.scheduler import WarmupLR
 
 def main():
     torch.manual_seed(777)
-    config_path = "conf/train_branchformer_moe.yaml"
+    config_path = "conf/train_conformer.yaml"
     with open(config_path, 'r') as fin:
         configs = yaml.load(fin, Loader=yaml.FullLoader)
 
@@ -32,9 +32,9 @@ def main():
     train_data = os.path.join(data_root, "train/data.list")
     cv_data = os.path.join(data_root, "dev/data.list")
     symbol_path = "data/dict/"
-    model_dir = "exp/branchformer_expert_aishell-grad_accu_4_50000lr"
+    model_dir = "exp/train_conformer"
     checkpoint_path = None
-    cmvn_path = None
+    cmvn_path = None    # "data/aishell/train/gllobal_cmvn"
 
     exp_id = os.path.basename(model_dir)  # model_dir 的上一级
     tensorboard_path = os.path.join("tensorboard", exp_id)
@@ -95,8 +95,14 @@ def main():
     configs['is_json_cmvn'] = True
     configs["domain_num"] = domain_num
 
+    saved_config_path = os.path.join(model_dir, 'train.yaml')
+    with open(saved_config_path, 'w') as fout:
+        data = yaml.dump(configs)
+        fout.write(data)
+
     # init model
     model = init_model(configs)
+    print(model)
     num_params = sum(p.numel() for p in model.parameters())
     print('the number of model params: {:,d}'.format(num_params))
 

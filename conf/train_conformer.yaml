@@ -1,5 +1,7 @@
 # network architecture
 # encoder related
+
+model_type: wenet
 encoder: conformer
 encoder_conf:
     output_size: 256    # dimension of attention

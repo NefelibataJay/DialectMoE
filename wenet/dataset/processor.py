@@ -404,7 +404,10 @@ def tokenize(data,
                 label.append(symbol_table[ch])
             elif '<unk>' in symbol_table:
                 label.append(symbol_table['<unk>'])
-        sample["domain"] = domain_table[sample["domain"].capitalize()]
+        if sample["domain"].capitalize() in domain_table:
+            sample["domain"] = domain_table[sample["domain"].capitalize()]
+        else:
+            sample["domain"] = domain_table["<unk>"]
         sample['tokens'] = tokens
         sample['label'] = label
         yield sample
