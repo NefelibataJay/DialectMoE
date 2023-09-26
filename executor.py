@@ -14,8 +14,9 @@ class MyExecutor:
         epoch = configs.get('epoch', 0)
         logger_interval = configs.get('logger_interval', 100)
         print('using accumulate grad, new batch size is {} times larger than before'.format(accum_grad))
-        # model_context = nullcontext
 
+        model_context = nullcontext
+        
         for batch_idx, batch in enumerate(data_loader):
             key, feats, target, feats_lengths, target_lengths, domain_id = batch
             feats = feats.to(device)  # (batch_size, max_len, feat_dim)

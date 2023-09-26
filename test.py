@@ -14,14 +14,21 @@ from init_model import init_model
 
 def main():
     torch.manual_seed(777)
-    mode = "ctc_greedy_search"
+    mode = "attention" # attention, ctc_greedy_search, accent_recognition
     data_type = "raw"
     symbol_path = "data/dict/"
-    config_path = "conf/train_branchformer_moe.yaml"
     test_data = "data/aishell/test/data.list"
-    checkpoint_path = "exp/branchformer_expert_aishell-grad_accu_4_50000lr/28.pt"
-    result_file = "exp/branchformer_expert_aishell-grad_accu_4_50000lr/test_result.txt"
-    cmvn_path = None
+    model_dir = "exp/conformer_moe_e8"
+
+    config_path = os.path.join(model_dir,"train.yaml")
+
+    checkpoint_path = os.path.join(model_dir,"final.pt")
+
+    if not os.path.exists(os.path.join(model_dir, mode)):
+        os.makedirs(os.path.join(model_dir, mode))
+
+    result_file = os.path.join(model_dir, mode, "text")
+    cmvn_path =os.path.join(model_dir,"global_cmvn") if os.path.exists(os.path.join(model_dir,"global_cmvn")) else None
 
     with open(config_path, 'r') as fin:
         configs = yaml.load(fin, Loader=yaml.FullLoader)
@@ -81,8 +88,8 @@ def main():
     model.load_state_dict(checkpoint, strict=False)
 
     use_cuda = torch.cuda.is_available()
-    # device = torch.device('cuda' if use_cuda else 'cpu')
-    device = torch.device('cpu')
+    device = torch.device('cuda' if use_cuda else 'cpu')
+    # device = torch.device('cpu')
     model = model.to(device)
 
     model.eval()
@@ -109,14 +116,15 @@ def main():
                 )
             elif model == 'accent_recognition':
                 pass
-
-            content = []
-            # batch_size = 1
-            for w in hyps[0]:
-                if w == eos:
-                    break
-                content.append(char_dict[w])
-            fout.write('{} {}\n'.format(keys[0], "".join(content)))
+            for i, key in enumerate(keys):
+                content = []
+                for w in hyps[i]:
+                    if w == eos:
+                        break
+                    content.append(char_dict[w])
+                print('{} {}'.format(key, "".join(content)))
+                fout.write('{} {}\n'.format(key,"".join(content)))
+            
 
 if __name__ == "__main__":
     main()

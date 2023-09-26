@@ -23,19 +23,20 @@ from wenet.utils.scheduler import WarmupLR
 
 def main():
     torch.manual_seed(777)
-    config_path = "conf/train_conformer.yaml"
+    config_path = "conf/train_conformer_moe.yaml"
     with open(config_path, 'r') as fin:
         configs = yaml.load(fin, Loader=yaml.FullLoader)
 
     data_type = "raw"
-    data_root = "data/aishell/"
+    data_root = "data/sc_km/"
     train_data = os.path.join(data_root, "train/data.list")
     cv_data = os.path.join(data_root, "dev/data.list")
     symbol_path = "data/dict/"
-    model_dir = "exp/train_conformer"
-    checkpoint_path = None
-    cmvn_path = None    # "data/aishell/train/gllobal_cmvn"
-
+    model_dir = "exp/conformer_moe_e4"
+    checkpoint_path = os.path.join(model_dir, '0.pt')
+    load_mode = "moe"
+    cmvn_path =  os.path.join(model_dir,"global_cmvn") if os.path.exists(os.path.join(model_dir,"global_cmvn")) else None
+    
     exp_id = os.path.basename(model_dir)  # model_dir 的上一级
     tensorboard_path = os.path.join("tensorboard", exp_id)
 
@@ -98,7 +99,7 @@ def main():
     saved_config_path = os.path.join(model_dir, 'train.yaml')
     with open(saved_config_path, 'w') as fout:
         data = yaml.dump(configs)
-        fout.write(data)
+        fout.write(data)    
 
     # init model
     model = init_model(configs)
@@ -115,13 +116,17 @@ def main():
     # load checkpoint
     # start_epoch is checkpoint model name
     if checkpoint_path is not None:
-        checkpoint = torch.load(checkpoint_path)
-        model.load_state_dict(checkpoint, strict=False)
+        if load_mode == "moe":
+            model.load_no_moe_checkpoint(checkpoint_path)
+        else:
+            checkpoint = torch.load(checkpoint_path)
+            model.load_state_dict(checkpoint, strict=False)
         info_path = re.sub('.pt$', '.yaml', checkpoint_path)
         infos = {}
         if os.path.exists(info_path):
             with open(info_path, 'r') as fin:
                 infos = yaml.load(fin, Loader=yaml.FullLoader)
+        print(f"load checkpoint {checkpoint_path}")
     else:
         infos = {}
 
@@ -135,9 +140,14 @@ def main():
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda' if use_cuda else 'cpu')
     model = model.to(device)
-
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), **configs['optim_conf'])
-    # adamw
+    if configs['optim'] == 'adamw':
+        optimizer = optim.AdamW(model.parameters(), **configs['optim_conf'])
+    elif configs['optim'] == 'adam':
+        optimizer = optim.Adam(model.parameters(), **configs['optim_conf'])
+        # optimizer = optim.Adam(filter(lambda p: p.requires_grad, model_ft.parameters()), **configs['optim_conf'])
+    else:
+        raise ValueError("unknown optimizer: " + configs['optim'])
+    
     scheduler = WarmupLR(optimizer, **configs['scheduler_conf'])
 
     # save init model
@@ -172,7 +182,7 @@ def main():
         cv_loss = total_loss / num_seen_utts
 
         print('Epoch {} CV info cv_loss {}'.format(epoch, cv_loss))
-
+        
         infos = {
             'epoch': epoch, 'lr': lr, 'cv_loss': cv_loss, 'step': executor.step,
             'save_time': datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
@@ -204,7 +214,6 @@ def main():
         os.remove(final_model_path) if os.path.exists(final_model_path) else None
         os.symlink('{}.pt'.format(final_epoch), final_model_path)  # create a shortcut
         writer.close()
-
 
 if __name__ == "__main__":
     main()

@@ -1,12 +1,13 @@
 import torch
-from branchformer_ffn_model.bf_model import AEDModel
-from branchformer_ffn_model.encoder import FFNBranchformerEncoder
+from model.asr_model import MyASRModel
+from model.domain_model import DomainModel
+from model.ebranchformer.encoder import EBranchformerEncoder
+from model.moduel.domin_classification import DomainClassifier
+from model.moduel.fusion import Fusion
+from model.moe_asr_model import MoeAsrModel
+from model.moe_conformer.encoder import MoeConformerEncoder
+from model.moe_e_branchformer.encoder import MoeEBranchformerEncoder
 
-from moe_model.domain_encoder import DomainConformerEncoder
-from moe_model.domin_classification import DomainClassifier
-from moe_model.moe_branchformer_encoder import MoeBranchformerEncoder
-from moe_model.me_model import MAModel
-from moe_model.frontend import Frontend
 from wenet.branchformer.encoder import BranchformerEncoder
 from wenet.transformer.asr_model import ASRModel
 from wenet.transformer.cmvn import GlobalCMVN
@@ -29,11 +30,53 @@ def init_model(configs):
     vocab_size = configs['output_dim']
     domain_num = configs["domain_num"]
 
+    domain_encoder_type = configs.get('domain_encoder', 'none')
     encoder_type = configs.get('encoder', 'conformer')
-    decoder_type = configs.get('decoder', 'transformer')
-    model_type = configs.get('model_type', 'wenet')
+    decoder_type = configs.get('decoder', 'none')
+    model_type = configs.get('model_type', 'my_model')
 
-    if model_type == "wenet":
+    if model_type == "moe_model":
+        if domain_encoder_type == "conformer":
+            domain_encoder = ConformerEncoder(input_dim,
+                                       global_cmvn=global_cmvn,
+                                       **configs['domain_encoder_conf'])
+            domain_classifier = DomainClassifier(domain_num, domain_encoder.output_size())
+        else:
+            domain_encoder = None
+            domain_classifier=None
+        
+        if encoder_type == 'conformer':
+            encoder = MoeConformerEncoder(input_dim,
+                                       global_cmvn=global_cmvn,
+                                       **configs['encoder_conf'])
+        elif encoder_type == "ebranchformer":
+            encoder = MoeEBranchformerEncoder(input_size=input_dim,
+                                           global_cmvn=global_cmvn,
+                                           **configs['encoder_conf'])
+        else:
+            raise ValueError(f"encoder type was not support {encoder_type}")
+            
+        ctc = CTC(vocab_size, encoder.output_size())
+        
+        if decoder_type == 'transformer':
+            decoder = TransformerDecoder(vocab_size, encoder.output_size(),
+                                         **configs['decoder_conf'])
+        else:
+            decoder = None
+
+        # fusion = Fusion(domain_encoder.output_size(),encoder.output_size(),encoder.output_size())
+        fusion =None
+
+        model = MoeAsrModel(vocab_size,
+                            encoder=encoder,
+                            decoder=decoder,
+                            ctc=ctc,
+                            domain_encoder=domain_encoder,
+                            domain_classifier=domain_classifier,
+                            fusion=fusion,
+                            **configs["model_conf"])
+        
+    elif model_type == "my_model":
         if encoder_type == 'conformer':
             encoder = ConformerEncoder(input_dim,
                                        global_cmvn=global_cmvn,
@@ -42,6 +85,10 @@ def init_model(configs):
             encoder = BranchformerEncoder(input_dim,
                                           global_cmvn=global_cmvn,
                                           **configs['encoder_conf'])
+        elif encoder_type == "ebranchformer":
+            encoder = EBranchformerEncoder(input_size=input_dim,
+                                           global_cmvn=global_cmvn,
+                                           **configs['encoder_conf'])
         else:
             encoder = TransformerEncoder(input_dim,
                                          global_cmvn=global_cmvn,
@@ -52,79 +99,21 @@ def init_model(configs):
             decoder = TransformerDecoder(vocab_size, encoder.output_size(),
                                          **configs['decoder_conf'])
         else:
-            raise ValueError("unknown decoder_type: " + decoder_type)
-
-        model = ASRModel(vocab_size=vocab_size,
+            decoder = None
+        model = MyASRModel(vocab_size=vocab_size,
                          encoder=encoder,
                          decoder=decoder,
                          ctc=ctc,
-                         lfmmi_dir=configs.get('lfmmi_dir', ''),
                          **configs['model_conf'])
+    elif model_type == "domain_model":
+        domain_encoder = ConformerEncoder(input_dim,
+                                       global_cmvn=global_cmvn,
+                                       **configs['encoder_conf'])
+        domain_classifier = DomainClassifier(domain_num, domain_encoder.output_size())
 
-    elif model_type == "moe_model":
-        frontend = Frontend(input_dim,
-                            output_size=configs['encoder_conf']["output_size"],
-                            input_layer=configs['input_layer'],
-                            global_cmvn=global_cmvn)
-        domain_encoder_type = configs.get('domain_encoder', 'none')
-        if domain_encoder_type != 'none':
-            assert configs['domain_conf']['output_size'] == configs['encoder_conf']["output_size"]
-            domain_encoder = DomainConformerEncoder(**configs['domain_conf'])
-            domain_classifier = DomainClassifier(accent_num=domain_num,
-                                                 encoder_output_size=domain_encoder.output_size())
-        else:
-            domain_encoder = None
-            domain_classifier = None
-
-        asr_encoder = MoeBranchformerEncoder(**configs['encoder_conf'])
-
-        fusion = configs.get('fusion', None)
-        ctc = CTC(vocab_size, asr_encoder.output_size())
-
-        decoder = TransformerDecoder(vocab_size, asr_encoder.output_size(),
-                                     **configs['decoder_conf'])
-
-        model = MAModel(vocab_size=vocab_size,
-                        frontend=frontend,
-                        domain_encoder=domain_encoder,
-                        asr_encoder=asr_encoder,
-                        decoder=decoder,
-                        domain_classifier=domain_classifier,
-                        ctc=ctc,
-                        fusion=fusion,
-                        **configs['model_conf'])
-    elif model_type == "my_model":
-        frontend = Frontend(input_dim,
-                            output_size=configs['encoder_conf']["output_size"],
-                            input_layer=configs['input_layer'],
-                            global_cmvn=global_cmvn)
-        domain_encoder_type = configs.get('domain_encoder', 'none')
-        if domain_encoder_type != 'none':
-            assert configs['domain_conf']['output_size'] == configs['encoder_conf']["output_size"]
-            domain_encoder = DomainConformerEncoder(**configs['domain_conf'])
-            domain_classifier = DomainClassifier(accent_num=domain_num,
-                                                 encoder_output_size=domain_encoder.output_size())
-        else:
-            domain_encoder = None
-            domain_classifier = None
-
-        asr_encoder = FFNBranchformerEncoder(**configs['encoder_conf'])
-
-        fusion = configs.get('fusion', None)
-        ctc = CTC(vocab_size, asr_encoder.output_size())
-
-        decoder = TransformerDecoder(vocab_size, asr_encoder.output_size(),
-                                     **configs['decoder_conf'])
-
-        model = AEDModel(vocab_size=vocab_size,
-                        frontend=frontend,
-                        domain_encoder=domain_encoder,
-                        asr_encoder=asr_encoder,
-                        decoder=decoder,
-                        domain_classifier=domain_classifier,
-                        ctc=ctc,
-                        fusion=fusion,
-                        **configs['model_conf'])
+        model = DomainModel(domain_num=domain_num,
+                            domain_encoder=domain_encoder,
+                            domain_classifier=domain_classifier)
     else:
-        raise ValueError("unknown model_type: " + model_type)
+        raise ValueError(f"model type was not support {model_type}")
     return model

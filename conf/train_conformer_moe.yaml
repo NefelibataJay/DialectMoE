@@ -1,7 +1,7 @@
 # network architecture
 # encoder related
 
-model_type: wenet
+model_type: moe_model
 encoder: conformer
 encoder_conf:
     output_size: 256    # dimension of attention
@@ -12,12 +12,16 @@ encoder_conf:
     positional_dropout_rate: 0.1
     attention_dropout_rate: 0.0
     input_layer: conv2d # encoder input type, you can chose conv2d, conv2d6 and conv2d8
-    normalize_before: true
     cnn_module_kernel: 15
     use_cnn_module: True
     activation_type: 'swish'
     pos_enc_layer_type: 'rel_pos'
-    selfattention_layer_type: 'rel_selfattn'
+    num_expert: 4
+    expert_size: 2048
+    capacity_factor: 1.25
+    drop_tokens: False
+    is_scale_prob: False
+    fusion_type: "none"
 
 # decoder related
 decoder: transformer
@@ -33,6 +37,8 @@ decoder_conf:
 # hybrid CTC/attention
 model_conf:
     ctc_weight: 0.3
+    att_weight: 0.7
+    aux_scale: [0.04, 0.04]
     lsm_weight: 0.1     # label smoothing option
     length_normalized_loss: false
 
@@ -64,16 +70,16 @@ dataset_conf:
         sort_size: 500  # sort_size should be less than shuffle_size
     batch_conf:
         batch_type: 'static' # static or dynamic
-        batch_size: 16
+        batch_size: 16 # 16
 
 grad_clip: 5
-accum_grad: 4
-max_epoch: 240
+accum_grad: 1  # 4
+max_epoch: 100 # 30
 log_interval: 100
 
 optim: adam
 optim_conf:
-    lr: 0.002
+    lr: 0.001
 scheduler: warmuplr     # pytorch v1.1.0+ required
 scheduler_conf:
     warmup_steps: 25000

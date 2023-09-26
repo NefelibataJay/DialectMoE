@@ -5,7 +5,7 @@ class SparseL1Loss(nn.Module):
     def __init__(self):
         super(SparseL1Loss, self).__init__()
 
-    def forward(self, prob_matrix, eps=1e-20):
+    def forward(self, prob_matrix: torch.Tensor, eps:float = 1e-20) -> torch.Tensor:
         prob_matrix = prob_matrix.view(-1, prob_matrix.size(-1))
         n_samples = prob_matrix.size(0)
         norm_y = prob_matrix.norm(2, dim=-1, keepdim=True)
@@ -21,7 +21,7 @@ class BalanceImportanceLoss(nn.Module):
     def __init__(self):
         super(BalanceImportanceLoss, self).__init__()
 
-    def forward(self, prob_matrix, ):
+    def forward(self, prob_matrix: torch.Tensor)-> torch.Tensor:
         prob_matrix = prob_matrix.view(-1, prob_matrix.size(-1))
         n_experts = prob_matrix.size(1)
         mean_prob = prob_matrix.mean(dim=0)
