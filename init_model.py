@@ -38,7 +38,7 @@ def init_model(configs):
     if model_type == "moe_model":
         if domain_encoder_type == "conformer":
             domain_encoder = ConformerEncoder(input_dim,
-                                       global_cmvn=global_cmvn,
+                                       global_cmvn=None,
                                        **configs['domain_encoder_conf'])
             domain_classifier = DomainClassifier(domain_num, domain_encoder.output_size())
         else:
@@ -105,10 +105,12 @@ def init_model(configs):
                          decoder=decoder,
                          ctc=ctc,
                          **configs['model_conf'])
+    elif model_type == "domain_asr_model":
+        pass
     elif model_type == "domain_model":
         domain_encoder = ConformerEncoder(input_dim,
                                        global_cmvn=global_cmvn,
-                                       **configs['encoder_conf'])
+                                       **configs['domain_encoder_conf'])
         domain_classifier = DomainClassifier(domain_num, domain_encoder.output_size())
 
         model = DomainModel(domain_num=domain_num,

@@ -1,7 +1,6 @@
-input_layer: conv2d
 model_type: domain_model
 
-domain_conf:
+domain_encoder_conf:
   output_size: 256    # dimension of attention
   attention_heads: 4
   linear_units: 2048  # the number of units of position-wise feed forward
@@ -9,11 +8,13 @@ domain_conf:
   dropout_rate: 0.1
   positional_dropout_rate: 0.1
   attention_dropout_rate: 0.0
-  pos_enc_layer_type: 'rel_pos'
+  input_layer: conv2d # encoder input type, you can chose conv2d, conv2d6 and conv2d8
   normalize_before: true
   cnn_module_kernel: 31
   use_cnn_module: True
   activation_type: 'swish'
+  pos_enc_layer_type: 'rel_pos'
+  selfattention_layer_type: 'rel_selfattn'
 
 dataset_conf:
   filter_conf:
@@ -43,11 +44,11 @@ dataset_conf:
     sort_size: 500  # sort_size should be less than shuffle_size
   batch_conf:
     batch_type: 'static' # static or dynamic
-    batch_size: 16
+    batch_size: 8
 
 grad_clip: 5
-accum_grad: 4
-max_epoch: 50
+accum_grad: 1
+max_epoch: 10
 
 optim: adam
 optim_conf:
@@ -55,4 +56,4 @@ optim_conf:
 #  weight_decay: 0.000001
 scheduler: warmuplr     # pytorch v1.1.0+ required
 scheduler_conf:
-  warmup_steps: 20000
+  warmup_steps: 10000

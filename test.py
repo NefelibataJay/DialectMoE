@@ -18,7 +18,7 @@ def main():
     data_type = "raw"
     symbol_path = "data/dict/"
     test_data = "data/aishell/test/data.list"
-    model_dir = "exp/conformer_moe_e8"
+    model_dir = "exp/conformer_moe_e2_domain_add"
 
     config_path = os.path.join(model_dir,"train.yaml")
 

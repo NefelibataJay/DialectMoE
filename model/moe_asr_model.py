@@ -526,24 +526,18 @@ class MoeAsrModel(torch.nn.Module):
                 if ori_k in param_dict and param_dict[ori_k].size() == v.size():
                     model_dict[k] = param_dict[ori_k]
         self.load_state_dict(model_dict)
-
-    # def init_domain_encoder(self, load_path):
-    #     param_dict = torch.load(load_path, map_location='cpu')
-    #     self.domain_encoder.load_state_dict(param_dict)
-    
-    # def load_param(self,load_path):
-    #     param_dict = torch.load(load_path, map_location='cpu')
-    #     model_dict = self.state_dict()
-    #     load_param_list = []
-    #     for k, v in model_dict.items():
-    #         if k in param_dict and param_dict[k].size() == v.size():
-    #             model_dict[k] = param_dict[k]
-    #             load_param_list.append(k)
-    #         elif "experts" in k:
-    #             ori_k = k.replace("experts.", "")
-    #             if ori_k in param_dict and param_dict[ori_k].size() == v.size()[1:]:
-    #                 model_dict[k] = param_dict[ori_k].unsqueeze(0).expand(v.size())
-    #                 load_param_list.append(k)
-    #     load_param_list.sort()
-    #     self.load_state_dict(model_dict)
-    #     return load_param_list
+        
+    def load_domain_moe_checkpoint(self, base_model_path, domain_model_path):
+        base_param_dict = torch.load(base_model_path, map_location='cpu')
+        domain_param_dict = torch.load(domain_model_path, map_location='cpu')
+        model_dict = self.state_dict()
+        for k, v in model_dict.items():
+            if k in base_param_dict and base_param_dict[k].size() == v.size():
+                model_dict[k] = base_param_dict[k]
+            elif "experts" in k:
+                ori_k = re.sub(r"\.experts\.\d+\.", ".", k.replace("experts_", ""))
+                if ori_k in base_param_dict and base_param_dict[ori_k].size() == v.size():
+                    model_dict[k] = base_param_dict[ori_k]
+            elif k in domain_param_dict and domain_param_dict[k].size() == v.size():
+                model_dict[k] = domain_param_dict[k]
+        self.load_state_dict(model_dict)

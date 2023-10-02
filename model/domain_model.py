@@ -17,7 +17,10 @@ class DomainModel(torch.nn.Module):
     def forward(self,
                 speech: torch.Tensor,
                 speech_lengths: torch.Tensor,
-                domain_id: torch.Tensor):
+                text: torch.Tensor,
+                text_lengths: torch.Tensor,
+                domain_id: torch.Tensor,
+                ):
         
         domain_encoder_output, mask = self.domain_encoder(speech, speech_lengths)
         loss_domain = self.domain_classifier(domain_encoder_output, domain_id)

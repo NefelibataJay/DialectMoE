@@ -23,7 +23,7 @@ from wenet.utils.scheduler import WarmupLR
 
 def main():
     torch.manual_seed(777)
-    config_path = "conf/train_conformer_moe.yaml"
+    config_path = "conf/ft_conformer_moe_domain.yaml"
     with open(config_path, 'r') as fin:
         configs = yaml.load(fin, Loader=yaml.FullLoader)
 
@@ -32,9 +32,12 @@ def main():
     train_data = os.path.join(data_root, "train/data.list")
     cv_data = os.path.join(data_root, "dev/data.list")
     symbol_path = "data/dict/"
-    model_dir = "exp/conformer_moe_e4"
+    model_dir = "exp/conformer_moe_e4_domain_concat"
     checkpoint_path = os.path.join(model_dir, '0.pt')
-    load_mode = "moe"
+    
+    domain_checkpoint_path = os.path.join("exp/domain_conformer", 'final.pt')
+    
+    load_mode = "domain_moe"
     cmvn_path =  os.path.join(model_dir,"global_cmvn") if os.path.exists(os.path.join(model_dir,"global_cmvn")) else None
     
     exp_id = os.path.basename(model_dir)  # model_dir 的上一级
@@ -118,6 +121,9 @@ def main():
     if checkpoint_path is not None:
         if load_mode == "moe":
             model.load_no_moe_checkpoint(checkpoint_path)
+        if load_mode == "domain_moe":
+            assert domain_checkpoint_path is not None
+            model.load_domain_moe_checkpoint(checkpoint_path, domain_checkpoint_path)
         else:
             checkpoint = torch.load(checkpoint_path)
             model.load_state_dict(checkpoint, strict=False)

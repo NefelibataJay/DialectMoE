@@ -30,6 +30,7 @@ class ExpertsFeedForward(nn.Module):
                  drop_tokens: bool = True,
                  is_scale_prob: bool = True,
                  fusion_type: str = 'none',
+                 attention_router: bool = True,
                  ):
         super().__init__()
         assert fusion_type in ["concat", "add", "embed", "none"]
