@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from loss.balance_loss import SparseL1Loss, BalanceImportanceLoss
+from wenet.transformer.attention import MultiHeadedAttention
 
 
 class Expert(nn.Module):
@@ -30,20 +31,24 @@ class ExpertsFeedForward(nn.Module):
                  drop_tokens: bool = True,
                  is_scale_prob: bool = True,
                  fusion_type: str = 'none',
-                 attention_router: bool = True,
                  ):
         super().__init__()
-        assert fusion_type in ["concat", "add", "embed", "none"]
+        assert fusion_type in ["concat", "add", "embed", "atten", "none"]
+        self.attention = None
         if fusion_type == "concat":
             router_input_dim = input_size + embed_dim
         elif fusion_type == "add":
             router_input_dim = input_size
         elif fusion_type == "embed":
             router_input_dim = embed_dim
+        elif fusion_type == "atten":
+            router_input_dim = embed_dim
+            self.attention = MultiHeadedAttention(n_head=4, n_feat=router_input_dim, dropout_rate=dropout_rate)
         else:
             # none
             router_input_dim = input_size
 
+        self.fusion_type = fusion_type
         self.n_experts = num_experts
         self.drop_tokens = drop_tokens
         self.capacity_factor = capacity_factor
@@ -62,17 +67,16 @@ class ExpertsFeedForward(nn.Module):
         self.sparseLoss = SparseL1Loss()
         self.balanceLoss = BalanceImportanceLoss()
 
-    def forward(self, x: torch.Tensor, embed: Optional[torch.Tensor] = None,)-> Tuple[torch.Tensor, tuple]:
+    def forward(self, x: torch.Tensor, embed: Optional[torch.Tensor] = None, embed_masks: Optional[torch.Tensor] = None)-> Tuple[torch.Tensor, tuple]:
         """
         Args:
             x: input tensor of shape (batch_size, seq_len, d_model)
             embed: domain prompt tensor of shape (batch_size, seq_len, d_model)
         """
         batch_size, seq_len, input_dim = x.size()
-        x = x.view(-1, input_dim)
+        
         if embed is not None:
             embed_dim = embed.size(-1)
-            embed = embed.view(-1, embed_dim)
             if self.fusion_type == "concat":
                 router_inputs = torch.cat([embed, x], dim=-1)
             elif self.fusion_type == "add":
@@ -80,12 +84,16 @@ class ExpertsFeedForward(nn.Module):
                 router_inputs = embed + x
             elif self.fusion_type == "embed":
                 router_inputs = embed
+            elif self.fusion_type == "atten":
+                router_inputs = x + self.attention(x, embed, embed, embed_masks)[0]
             else:
                 # none
                 router_inputs = x
+            embed = embed.view(-1, embed_dim)
         else:
             router_inputs = x
-
+        x = x.view(-1, input_dim)
+        
         router_logits = self.router(router_inputs)
         router_probs = self.softmax(router_logits)
         gate_value, gate_idx = router_probs.max(dim=-1)

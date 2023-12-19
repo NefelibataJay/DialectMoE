@@ -64,7 +64,7 @@ def init_model(configs):
         else:
             decoder = None
 
-        # fusion = Fusion(domain_encoder.output_size(),encoder.output_size(),encoder.output_size())
+        # fusion = Fusion(domain_encoder.output_size(),encoder.output_size(),encoder.output_size(),fusion_type="concat")
         fusion =None
 
         model = MoeAsrModel(vocab_size,

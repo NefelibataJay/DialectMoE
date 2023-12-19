@@ -59,6 +59,7 @@ class MoeConformerEncoderLayer(nn.Module):
         pos_emb: torch.Tensor,
         mask_pad: torch.Tensor = torch.ones((0, 0, 0), dtype=torch.bool),
         embed: Optional[torch.Tensor] = None,
+        embed_mask: Optional[torch.Tensor] = None,
         att_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
         cnn_cache: torch.Tensor = torch.zeros((0, 0, 0, 0)),
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -105,7 +106,7 @@ class MoeConformerEncoderLayer(nn.Module):
 
         # feed forward module
         residual = x
-        x, aux_loss = self.experts_feed_forward(self.norm_ff(x), embed)
+        x, aux_loss = self.experts_feed_forward(self.norm_ff(x), embed, embed_mask)
         x = residual + self.dropout(x) * self.ff_scale
 
         x = self.norm_final(x)
@@ -253,6 +254,7 @@ class MoeConformerEncoder(torch.nn.Module):
         xs: torch.Tensor,
         xs_lens: torch.Tensor,
         embed : Optional[torch.Tensor] = None,
+        embed_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Embed positions in tensor.
 
@@ -282,7 +284,7 @@ class MoeConformerEncoder(torch.nn.Module):
         chunk_masks = masks
         aux_loss_collection = []
         for layer in self.encoders:
-            xs, chunk_masks, aux_loss = layer(xs, chunk_masks, pos_emb, mask_pad,embed)
+            xs, chunk_masks, aux_loss = layer(xs, chunk_masks, pos_emb, mask_pad, embed, embed_mask)
             aux_loss_collection.append(aux_loss)
         xs = self.after_norm(xs)
         return xs, masks, aux_loss_collection

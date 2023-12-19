@@ -32,7 +32,7 @@ def main():
     train_data = os.path.join(data_root, "train/data.list")
     cv_data = os.path.join(data_root, "dev/data.list")
     symbol_path = "data/dict/"
-    model_dir = "exp/conformer_moe_e4_domain_concat"
+    model_dir = "exp/conformer_moe_e4_domain_atten"
     checkpoint_path = os.path.join(model_dir, '0.pt')
     
     domain_checkpoint_path = os.path.join("exp/domain_conformer", 'final.pt')

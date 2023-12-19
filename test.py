@@ -3,6 +3,7 @@ import os
 import sys
 import torch
 import yaml
+import time
 from torch.utils.data import DataLoader
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -14,11 +15,11 @@ from init_model import init_model
 
 def main():
     torch.manual_seed(777)
-    mode = "attention" # attention, ctc_greedy_search, accent_recognition
+    mode = "attention" # attention, ctc_greedy_search, accent_recognition, attention_rescoring
     data_type = "raw"
     symbol_path = "data/dict/"
-    test_data = "data/aishell/test/data.list"
-    model_dir = "exp/conformer_moe_e2_domain_add"
+    test_data = "data/test/data.list"
+    model_dir = "exp/conformer_moe_e4_domain_embed"
 
     config_path = os.path.join(model_dir,"train.yaml")
 
@@ -88,11 +89,13 @@ def main():
     model.load_state_dict(checkpoint, strict=False)
 
     use_cuda = torch.cuda.is_available()
-    device = torch.device('cuda' if use_cuda else 'cpu')
-    # device = torch.device('cpu')
+    # device = torch.device('cuda' if use_cuda else 'cpu')
+    device = torch.device('cpu')
     model = model.to(device)
 
     model.eval()
+    num_params = sum(p.numel() for p in model.parameters())
+    print('the number of model params: {:,d}'.format(num_params))
 
     with torch.no_grad(), open(result_file, 'w') as fout:
         for batch_idx, batch in enumerate(test_data_loader):
@@ -103,19 +106,41 @@ def main():
             target_lengths = target_lengths.to(device)
             accent_id = accent_id.to(device)
             if mode == 'attention':
+                torch.cuda.synchronize()
+                start = time.perf_counter()
+
                 hyps, _ = model.recognize(
                     feats,
                     feats_lengths,
                     beam_size=10,
                 )
                 hyps = [hyp.tolist() for hyp in hyps]
+                torch.cuda.synchronize()
+                end = time.perf_counter() - start
+                print(end)
+                
             elif mode == 'ctc_greedy_search':
                 hyps, _ = model.ctc_greedy_search(
                     feats,
                     feats_lengths,
                 )
+            elif mode == 'attention_rescoring':
+                hyp, _ = model.attention_rescoring(
+                    feats,
+                    feats_lengths,
+                    beam_size=10,
+                    ctc_weight = 0.5,
+                    )
+                hyps = [hyp]
+            elif model == "":
+                hyp, _ = model.ctc_prefix_beam_search(
+                    feats,
+                    feats_lengths,
+                    10,)
+                hyps = [hyp]
             elif model == 'accent_recognition':
                 pass
+            # break
             for i, key in enumerate(keys):
                 content = []
                 for w in hyps[i]:
@@ -124,6 +149,7 @@ def main():
                     content.append(char_dict[w])
                 print('{} {}'.format(key, "".join(content)))
                 fout.write('{} {}\n'.format(key,"".join(content)))
+            
             
 
 if __name__ == "__main__":

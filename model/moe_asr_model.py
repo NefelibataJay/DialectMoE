@@ -65,9 +65,10 @@ class MoeAsrModel(torch.nn.Module):
     ) -> Dict[str, Optional[torch.Tensor]]:
         # Domain Encoder
         if self.domain_encoder is not None:
-            domain_encoder_output, mask = self.domain_encoder(speech, speech_lengths)
+            domain_encoder_output, domain_mask = self.domain_encoder(speech, speech_lengths)
         else:
             domain_encoder_output = None
+            domain_mask = None
 
         if self.domain_weight != 0.0:
             assert domain_id is not None and self.domain_classifier is not None
@@ -77,10 +78,12 @@ class MoeAsrModel(torch.nn.Module):
 
         # ASR Encoder
         if self.use_branch:
-            encoder_output, encoder_mask, aux_loss_collection = self.encoder(speech, speech_lengths,domain_encoder_output)
+            encoder_output, encoder_mask, aux_loss_collection = self.encoder(speech, speech_lengths,domain_encoder_output, domain_mask)
         else:
             assert domain_encoder_output is not None
-            encoder_output, encoder_mask, aux_loss_collection = self.encoder(domain_encoder_output, mask,domain_encoder_output)
+            # encoder_output, encoder_mask, aux_loss_collection = self.encoder(domain_encoder_output, domain_mask,domain_encoder_output)
+            pass
+            
         encoder_out_lens = encoder_mask.squeeze(1).sum(1)
 
         if self.aux_scale is not None:
@@ -99,6 +102,7 @@ class MoeAsrModel(torch.nn.Module):
             loss_att = torch.tensor(0.0)
 
         if self.ctc_weight != 0.0:
+            # fusion encoder output for ctc
             loss_ctc = self.ctc(encoder_output, encoder_out_lens, text, text_lengths) * self.ctc_weight
         else:
             loss_ctc = torch.tensor(0.0)
@@ -140,7 +144,7 @@ class MoeAsrModel(torch.nn.Module):
             speech_lengths: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.domain_encoder is not None:
-            domain_encoder_output, mask = self.domain_encoder(speech, speech_lengths)
+            domain_encoder_output, domain_mask = self.domain_encoder(speech, speech_lengths)
         else:
             domain_encoder_output = None
 
@@ -149,7 +153,7 @@ class MoeAsrModel(torch.nn.Module):
                                                                                      domain_encoder_output)
         else:
             assert domain_encoder_output is not None
-            encoder_output, encoder_mask, _ = self.encoder(domain_encoder_output, mask,
+            encoder_output, encoder_mask, _ = self.encoder(domain_encoder_output, domain_mask,
                                                                                      domain_encoder_output)
 
         # Fusion

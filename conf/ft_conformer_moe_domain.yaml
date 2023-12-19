@@ -37,7 +37,7 @@ encoder_conf:
     capacity_factor: 1.25
     drop_tokens: False
     is_scale_prob: true
-    fusion_type: "concat"
+    fusion_type: "atten"
 
 # decoder related
 decoder: transformer
@@ -54,8 +54,8 @@ decoder_conf:
 model_conf:
     ctc_weight: 0.3
     att_weight: 0.7
-    domain_weight: 0.5
-    aux_scale: [0.05, 0.05]
+    domain_weight: 0.3
+    aux_scale: [0.02, 0.02]
     lsm_weight: 0.1     # label smoothing option
     length_normalized_loss: false
 
