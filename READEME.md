@@ -4,7 +4,7 @@ This is the official repository of our paper: DialectMoE: An End-to-End Multi-Di
 
 ## Abstract
 
-Dialect speech recognition has always been one of the challenges in Automatic Speech Recognition (ASR) systems. While lots of ASR systems perform well in Mandarin, their performance
+Dialect speech recognition has always been one of the challenges in Automatic Speech Recognition (ASR) systems. While lots of ASR systems perform well in Mandarin, their performance
 significantly drops when handling dialect speech. This is mainly due to the obvious differences
 between dialects and Mandarin in pronunciation and the data scarcity of dialect speech. In this
 paper, we propose DialectMoE, a Chinese multi-dialects speech recognition model based on
