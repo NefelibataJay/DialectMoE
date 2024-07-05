@@ -1,4 +1,0 @@
-<unk> 0
-Kunming 1
-Sichuan 2
-Mandarin 3
